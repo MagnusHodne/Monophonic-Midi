@@ -9,7 +9,8 @@ public:
     MidiPluginProcessor()
             : AudioProcessor (BusesProperties())
     {
-        addParameter(overlap = new AudioParameterInt("overlap", "Legato overlap", 0, 10, 5));
+        addParameter(overlap = new AudioParameterInt("overlap", "Legato overlap", 0, 30, 5));
+        addParameter(numberOfNotes = new AudioParameterInt("notes", "DEBUG", 0, 10, 0));
     }
     ~MidiPluginProcessor() override = default;
 
@@ -27,6 +28,8 @@ public:
 
     void processBlock (AudioBuffer<float>& buffer, MidiBuffer& midiMessages) override
     {
+        //The audio buffer in a midi effect should have zero channels...
+        jassert(buffer.getNumChannels() == 0);
         buffer.clear();
 
         MidiBuffer processedMidi; //This is the "output" buffer
@@ -47,14 +50,16 @@ public:
                 }
 
                 heldNotes.add(message.getNoteNumber());
+                numberOfNotes->setValueNotifyingHost(heldNotes.size());
             } else if(message.isNoteOff()){
-                processedMidi.addEvent(message, samplePos);
                 heldNotes.removeValue(message.getNoteNumber());
-
+                numberOfNotes->setValueNotifyingHost(heldNotes.size());
                 if(!heldNotes.isEmpty()){
-                    auto noteOn = MidiMessage::noteOn(channelNumber, heldNotes[0], (uint8) 2);
-                    processedMidi.addEvent(noteOn, samplePos + overlap->get());
+                    auto noteOn = MidiMessage::noteOn(channelNumber, heldNotes.getLast(), (uint8) 2);
+                    processedMidi.addEvent(noteOn, samplePos);
                 }
+
+                processedMidi.addEvent(message, samplePos + overlap->get());
             } else {
                 processedMidi.addEvent(message, samplePos);
             }
@@ -140,6 +145,7 @@ private:
     int channelNumber;
     AudioParameterInt* overlap; // Legato overlap length in ms
     float rate;
+    AudioParameterInt* numberOfNotes;
     SortedSet<int> heldNotes; //Only holds note number
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiPluginProcessor)
