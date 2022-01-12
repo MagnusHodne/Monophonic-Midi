@@ -16,7 +16,7 @@ public:
     void prepareToPlay (double sampleRate, int samplesPerBlock) override {
         // Use this method as the place to do any pre-playback
         // initialisation that you need...
-        ignoreUnused (samplesPerBlock);
+        ignoreUnused (sampleRate, samplesPerBlock);
 
         channelNumber = 1;
     }
