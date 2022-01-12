@@ -9,19 +9,16 @@ public:
     MidiPluginProcessor()
             : AudioProcessor (BusesProperties())
     {
-        addParameter(overlap = new AudioParameterInt("overlap", "Legato overlap", 0, 30, 5));
-        addParameter(numberOfNotes = new AudioParameterInt("notes", "DEBUG", 0, 10, 0));
+        addParameter(retriggerVelocity = new AudioParameterInt("velocity", "Retrigger velocity", 0, 127, 64));
     }
     ~MidiPluginProcessor() override = default;
 
     void prepareToPlay (double sampleRate, int samplesPerBlock) override {
         // Use this method as the place to do any pre-playback
-        // initialisation that you need..
+        // initialisation that you need...
         ignoreUnused (samplesPerBlock);
 
-        heldNotes.clear();
         channelNumber = 1;
-        rate = static_cast<float> (sampleRate);
     }
 
     void releaseResources() override {}
@@ -33,7 +30,6 @@ public:
         buffer.clear();
 
         MidiBuffer processedMidi; //This is the "output" buffer
-        auto numSamples = buffer.getNumSamples();
 
         //Iterate over each midi message in buffer
         for (const auto metadata : midiMessages)
@@ -41,30 +37,32 @@ public:
             auto message = metadata.getMessage();
             const auto samplePos = metadata.samplePosition;
 
-            if (message.isNoteOn())
-            {
-                processedMidi.addEvent(message, samplePos); //Send new note on
-                if(!heldNotes.isEmpty()){
-                    auto noteOff = MidiMessage::noteOff(channelNumber, heldNotes[0], (uint8) 64);
-                    processedMidi.addEvent(noteOff, samplePos + overlap->get());
+            if(message.isNoteOn()){
+                processedMidi.addEvent(message, samplePos);
+                if(currentNote != -1){
+                    processedMidi.addEvent(MidiMessage::noteOff(channelNumber, currentNote), samplePos);
                 }
+                lastNote = currentNote;
+                currentNote = message.getNoteNumber();
 
-                heldNotes.add(message.getNoteNumber());
-                numberOfNotes->setValueNotifyingHost(heldNotes.size());
             } else if(message.isNoteOff()){
-                heldNotes.removeValue(message.getNoteNumber());
-                numberOfNotes->setValueNotifyingHost(heldNotes.size());
-                if(!heldNotes.isEmpty()){
-                    auto noteOn = MidiMessage::noteOn(channelNumber, heldNotes.getLast(), (uint8) 2);
-                    processedMidi.addEvent(noteOn, samplePos);
-                }
+                if(message.getNoteNumber() == currentNote){
+                    if(lastNote != -1){
+                        processedMidi.addEvent(MidiMessage::noteOn(channelNumber, lastNote, (uint8) *retriggerVelocity), samplePos);
+                        currentNote = lastNote;
+                        lastNote = -1;
+                    } else {
+                        currentNote = -1;
+                    }
+                    processedMidi.addEvent(message, samplePos);
 
-                processedMidi.addEvent(message, samplePos + overlap->get());
+                } else if(message.getNoteNumber() == lastNote){
+                    lastNote = -1;
+                }
             } else {
                 processedMidi.addEvent(message, samplePos);
             }
         }
-
         midiMessages.swapWith (processedMidi);
     }
 
@@ -143,10 +141,10 @@ public:
 
 private:
     int channelNumber;
-    AudioParameterInt* overlap; // Legato overlap length in ms
-    float rate;
-    AudioParameterInt* numberOfNotes;
-    SortedSet<int> heldNotes; //Only holds note number
+    int currentNote {-1};
+    int lastNote {-1};
+
+    AudioParameterInt* retriggerVelocity;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MidiPluginProcessor)
 };
