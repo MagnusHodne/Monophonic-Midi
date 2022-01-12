@@ -3,113 +3,46 @@
 cmake_minimum_required(VERSION 3.18)
 
 # Change this to your project name
-set(TARGET_NAME "MonophonicMIDI")
+set(TARGET_NAME "MidiLegato")
 
 # Set the plugin formats you'll be building here. Valid formats: AAX Unity VST AU AUv3 Standalone
-set(FORMATS AU VST3 AUv3)
+set(FORMATS VST3 AUv3)
 
-# TODO: Automate/coordinate version with GitHub tagging?
-project(${TARGET_NAME} VERSION 0.0.1)
-
-# Adds all the module sources so they appear correctly in the IDE
-# Must be set before JUCE is added as a sub-dir (or any targets are made)
-# https://github.com/juce-framework/JUCE/commit/6b1b4cf7f6b1008db44411f2c8887d71a3348889
-# set_property(GLOBAL PROPERTY USE_FOLDERS YES)
-
-# This is a failed attempt to bury ALL_BUILD in Targets/
-# This should be called before any target is made
-# Bug in Xcode? https://gitlab.kitware.com/cmake/cmake/-/issues/21383
-# set_property(GLOBAL PROPERTY PREDEFINED_TARGETS_FOLDER "Targets")
-
-# Create a /Modules directory in the IDE with the JUCE Module code
-# option(JUCE_ENABLE_MODULE_SOURCE_GROUPS "Show all module sources in IDE projects" ON)
+project(${TARGET_NAME} VERSION 0.0.2)
 
 # JUCE is setup as a submodule in the /JUCE folder
 # Locally, you need to run `git submodule update --init --recursive` once
 # On Github Actions, it's managed by actions/checkout
 add_subdirectory(JUCE)
 
-# Check the readme at `docs/CMake API.md` in the JUCE repo for full config
+# Check the readme at `docs/CMake API.md` in the JUCE repo for full config...
 juce_add_plugin("${TARGET_NAME}"
-    # VERSION ...                               # Set this if the plugin version is different to the project version
-    # ICON_BIG ...                              # ICON_* arguments specify a path to an image file to use as an icon for the Standalone
-    # ICON_SMALL ...
-    COMPANY_NAME "Hodne Shenanigans"
+    COMPANY_NAME "Magnus Hodne"
     DESCRIPTION "Forces incoming MIDI to be monophonic, and remembers last played notes for trills"
     VST3_CATEGORIES Fx
-    # BUNDLE_ID com.MagnusHodne.MonophonicMidi
-    # IS_SYNTH FALSE                       # Is this a synth or an effect?
     NEEDS_MIDI_INPUT TRUE               # Does the plugin need midi input?
     NEEDS_MIDI_OUTPUT TRUE              # Does the plugin need midi output?
     IS_MIDI_EFFECT TRUE                 # Is this plugin a MIDI effect?
-    # EDITOR_WANTS_KEYBOARD_FOCUS FALSE    # Does the editor need keyboard focus?
-    # COPY_PLUGIN_AFTER_BUILD FALSE # On MacOS, plugin will be copied to /Users/you/Library/Audio/Plug-Ins/
-    PLUGIN_MANUFACTURER_CODE MaHo 
-    PLUGIN_CODE Mon0                            # A unique four-character plugin id with at least one upper-case character
+    PLUGIN_MANUFACTURER_CODE MaHo
+    PLUGIN_CODE MiLe                    # A unique four-character plugin id with at least one upper-case character
     FORMATS "${FORMATS}"
-    PRODUCT_NAME "Monophonic MIDI")        # The name of the final executable, which can differ from the target name
+    PRODUCT_NAME "MIDI Legato")         # The name of the final executable, which can differ from the target name
 
 # C++20 please 
 target_compile_features("${TARGET_NAME}" PRIVATE cxx_std_20)
 
 # Manually list all .h and .cpp files for the plugin, don't use globs:
 set(SourceFiles
-    # Source/PluginEditor.h
     Source/PluginProcessor.h
-    # Source/PluginEditor.cpp
     Source/PluginProcessor.cpp
     )
 
 target_sources("${TARGET_NAME}" PRIVATE ${SourceFiles})
 
-# No, we don't want our source buried in extra nested folders
-# set_target_properties("${PROJECT_NAME}" PROPERTIES FOLDER "")
-
-# The source tree should uhhh, still look like the source tree, yo
-# source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}/Source PREFIX "" FILES ${SourceFiles})
-
-# Setup our binary data as a target
-# juce_add_binary_data(Assets SOURCES pamplejuce.png)
-
-# Required for Linux happiness:
-# See https://forum.juce.com/t/loading-pytorch-model-using-binarydata/39997/2
-# set_target_properties(Assets PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
-
-# This cleans up the folder organization, especially on Xcode.
-# It tucks the Plugin varieties into a "Targets" folder and generate an Xcode Scheme manually
-# Xcode scheme generation is turned off globally to limit noise from other targets
-# The non-hacky way of doing this is via the global PREDEFINED_TARGETS_FOLDER propety
-# However that doesn't seem to be working in Xcode
-# Not all plugin types (au, vst) available on each build type (win, macos, linux)
-# foreach(target ${FORMATS} "All")
-#     if(TARGET ${PROJECT_NAME}_${target})
-#         set_target_properties(${PROJECT_NAME}_${target} PROPERTIES
-#             # Tuck the actual plugin targets into a folder where they won't bother us
-#             FOLDER "Targets"
-
-            # MacOS only: Sets the default executable that Xcode will open on build
-            # For this exact path to to work, manually build the AudioPluginHost.xcodeproj in the JUCE subdir
-#             XCODE_SCHEME_EXECUTABLE "${CMAKE_CURRENT_SOURCE_DIR}/JUCE/extras/AudioPluginHost/Builds/MacOSX/build/Debug/AudioPluginHost.app"
-
-            # Let us build the target in Xcode
-#             XCODE_GENERATE_SCHEME ON)
-#     endif()
-# endforeach()
-# set_target_properties(Assets PROPERTIES FOLDER "Targets")
-
 # We'll need to link to these from our plugin as well as our tests
-set(JUCE_DEPENDENCIES 
-    juce::juce_audio_basics
-    juce::juce_audio_devices
-    juce::juce_audio_formats
+set(JUCE_DEPENDENCIES
     juce::juce_audio_processors
-    juce::juce_audio_utils
-    juce::juce_core
-    juce::juce_data_structures
-    juce::juce_events
-    juce::juce_graphics
-    juce::juce_gui_basics
-    juce::juce_gui_extra)
+    )
 
 target_compile_definitions("${TARGET_NAME}"
     PUBLIC
@@ -126,5 +59,3 @@ target_link_libraries("${TARGET_NAME}"
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags)
-
-# add_subdirectory(Tests)
